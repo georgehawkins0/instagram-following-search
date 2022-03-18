@@ -111,6 +111,14 @@ def login():
 
     return api
 
+def can_crawl_followers(username):
+    content =  api.username_info(username)
+    target_id = content['user']['pk']
+    is_private = content['user']['is_private']
+    following = check_following(target_id)
+    if is_private and not following:
+        return False
+    return True
 
 def check_following(target_id):
     if str(target_id) == api.authenticated_user_id:
@@ -119,12 +127,12 @@ def check_following(target_id):
     return api._call_api(endpoint)['user_detail']['user']['friendship_status']['following']
 
 def get_followers(username):
-    content =   api.username_info(username)
+    content =  api.username_info(username)
     target_id = content['user']['pk']
     is_private = content['user']['is_private']
     following = check_following(target_id)
     if is_private and not following:
-        print(f"Not following @{username}. Cannot retrieve followers.")
+        tq.write(f"Not following @{username}. Cannot retrieve followers.")
     else:
         get_followers = []
         followers = []
@@ -153,7 +161,7 @@ def get_followers(username):
         return followers
 
 def get_number_of_followers(username):
-    content =   api.username_info(username)
+    content =  api.username_info(username)
     target_id = content['user']['pk']
     content = api.user_info(str(target_id))
     return int(content["user"]["follower_count"])
@@ -164,28 +172,41 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.users:
-        api = login()
         users_string = args.users
         users = users_string.split(" ")
-        db = []
-        total_followers = 0
-        for username in users:
-            total_followers += get_number_of_followers(username)
+        if len(users)>1:
+            api = login()
+            db = []
+            total_followers = 0
+            for username in users:
+                if can_crawl_followers(username):
+                    total_followers += get_number_of_followers(username)
+                else:
+                    print(f"Not following @{username} and they are a private account. Cannot retrieve followers.")
 
-        tq = tqdm(total=total_followers,desc="Fetching followers")
+            if total_followers>0:
+                tq = tqdm(total=total_followers,desc="Fetching followers")
 
-        for username in users:
-            followers = get_followers(username)
-            db.append(followers)
+                for username in users:
+                    followers = get_followers(username)
+                    if followers:
+                        db.append(followers)
 
-        tq.update(total_followers-tq.n) # Just in case total_followers is more than the progress of the bar.
-        tq.close() # finish bar
+                tq.update(total_followers-tq.n) # Just in case total_followers is more than the progress of the bar.
+                tq.close() # finish bar
 
+                if len(db) > 0:
+                    result = set(db[0])
+                    for s in db[1:]:
+                        result.intersection_update(s)
+                    
+                    print(f"\nFound {len(result)} mutual followings: ")
+                    for user in result:
+                        print (f"@{user}")
+                else:
+                    print("Couldnt find any mutual followings :(")
 
-        result = set(db[0])
-        for s in db[1:]:
-            result.intersection_update(s)
-        
-        print(f"\nFound {len(result)} mutual followings: ")
-        for user in result:
-            print (f"@{user}")
+            else:
+                print("Couldnt find any mutual followings :(")
+        else:
+            print("Need two of more accounts to retrieve mutual followings.")
