@@ -6,6 +6,7 @@ import os
 import codecs
 import json
 import argparse
+from tqdm import tqdm
 
 def get_password():
         try:
@@ -111,7 +112,7 @@ def login():
     return api
 
 
-def check_following(target_id,api):
+def check_following(target_id):
     if str(target_id) == api.authenticated_user_id:
         return True
     endpoint = 'users/{user_id!s}/full_detail_info/'.format(**{'user_id' : target_id})
@@ -121,7 +122,7 @@ def get_followers(username):
     content =   api.username_info(username)
     target_id = content['user']['pk']
     is_private = content['user']['is_private']
-    following = check_following(target_id,api)
+    following = check_following(target_id)
     if is_private and not following:
         print(f"Not following @{username}. Cannot retrieve followers.")
     else:
@@ -132,11 +133,13 @@ def get_followers(username):
         data = api.user_followers(str(target_id), rank_token=rank_token)
         
         get_followers.extend(data.get('users', []))
+        tq.update(len(data.get('users', [])))
         
         next_max_id = data.get('next_max_id')
         while next_max_id:
             results = api.user_followers(str(target_id), rank_token=rank_token, max_id=next_max_id)
             get_followers.extend(results.get('users', []))
+            tq.update(len(results.get('users', [])))
             next_max_id = results.get('next_max_id')
         
         for user in get_followers:
@@ -145,11 +148,15 @@ def get_followers(username):
                 'username':user['username'],
                 'full_name': user['full_name']
             }
-            followers.append(users["username"])
+            followers.append(users["username"]) # I have left it like this is for future development purposes.
 
         return followers
 
-
+def get_number_of_followers(username):
+    content =   api.username_info(username)
+    target_id = content['user']['pk']
+    content = api.user_info(str(target_id))
+    return int(content["user"]["follower_count"])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Information about any airport from all over the world.")
@@ -161,15 +168,24 @@ if __name__ == "__main__":
         users_string = args.users
         users = users_string.split(" ")
         db = []
+        total_followers = 0
+        for username in users:
+            total_followers += get_number_of_followers(username)
+
+        tq = tqdm(total=total_followers,desc="Fetching followers")
+
         for username in users:
             followers = get_followers(username)
             db.append(followers)
 
-        print(db)
+        tq.update(total_followers-tq.n) # Just in case total_followers is more than the progress of the bar.
+        tq.close() # finish bar
+
+
         result = set(db[0])
         for s in db[1:]:
             result.intersection_update(s)
         
-        for user in s:
+        print(f"\nFound {len(result)} mutual followings: ")
+        for user in result:
             print (f"@{user}")
-

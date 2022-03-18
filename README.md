@@ -1,2 +1,10 @@
 # instagram-following-search
- Find an account by giving a list of accounts that it follows
+ Find a list of accounts with mutual followings
+
+ Usage example:
+
+1. Fetch mutual followings of **githubeducation** and **codenewbies**:
+
+        $ search.py -u "githubeducation codenewbies"
+
+
