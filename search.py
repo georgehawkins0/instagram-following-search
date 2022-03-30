@@ -167,8 +167,8 @@ def get_number_of_followers(username):
     return int(content["user"]["follower_count"])
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Information about any airport from all over the world.")
-    parser.add_argument('-u', '--users', type=str, default=None, help="List of usernames which the user follows. Use \" 's.")
+    parser = argparse.ArgumentParser(description="Find mutual followers of a list of instagram accounts.")
+    parser.add_argument('-u', '--users', type=str, default=None, help="List of usernames to crawl for mutual followers. Use \" 's.")
     args = parser.parse_args()
 
     if args.users:
@@ -210,3 +210,6 @@ if __name__ == "__main__":
                 print("Couldnt find any mutual followings :(")
         else:
             print("Need two of more accounts to retrieve mutual followings.")
+
+
+            
